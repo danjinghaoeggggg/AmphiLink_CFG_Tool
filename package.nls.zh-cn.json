@@ -1,0 +1,14 @@
+{
+  "displayName": "AmphiLink CFG Tool",
+  "description": "发现并配置 AmphiLink 调试器。",
+  "command.refreshEnvironment": "AmphiLink CFG Tool：检查环境",
+  "command.refreshDevices": "AmphiLink CFG Tool：刷新设备",
+  "command.saveProject": "AmphiLink CFG Tool：为当前项目保存",
+  "activitybar.title": "AmphiLink CFG Tool",
+  "view.sidebar.name": "AmphiLink CFG Tool",
+  "configuration.title": "AmphiLink CFG Tool",
+  "configuration.openocdPath": "OpenOCD 可执行文件的绝对路径。有线模式要求 CMSIS-DAP USB bulk，无线模式还要求 CMSIS-DAP TCP backend。",
+  "configuration.openocdScriptsPath": "OpenOCD scripts 目录的绝对路径。",
+  "configuration.gdbPath": "arm-none-eabi-gdb 或 gdb-multiarch 的绝对路径。",
+  "configuration.adapterSpeed": "写入托管工程配置的 OpenOCD 调试速度，单位为 kHz。"
+}

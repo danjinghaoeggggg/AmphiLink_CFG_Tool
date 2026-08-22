@@ -1,0 +1,129 @@
+{
+  "name": "amphilink-cfg-tool",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "1.0.0",
+  "publisher": "danjinghaoeggggg",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/danjinghaoeggggg/AmphiLink_CFG_Tool.git"
+  },
+  "homepage": "https://github.com/danjinghaoeggggg/AmphiLink_CFG_Tool#readme",
+  "bugs": {
+    "url": "https://github.com/danjinghaoeggggg/AmphiLink_CFG_Tool/issues"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Debuggers",
+    "Other"
+  ],
+  "keywords": [
+    "AmphiLink",
+    "CMSIS-DAP",
+    "OpenOCD",
+    "STM32",
+    "Cortex-Debug"
+  ],
+  "activationEvents": [
+    "onView:amphilinkCfg.sidebar",
+    "onCommand:amphilinkCfg.refreshEnvironment",
+    "onCommand:amphilinkCfg.refreshDevices",
+    "onCommand:amphilinkCfg.saveProject"
+  ],
+  "extensionDependencies": [
+    "marus25.cortex-debug"
+  ],
+  "main": "./dist/extension.js",
+  "icon": "media/icon.png",
+  "contributes": {
+    "commands": [
+      {
+        "command": "amphilinkCfg.refreshEnvironment",
+        "title": "%command.refreshEnvironment%"
+      },
+      {
+        "command": "amphilinkCfg.refreshDevices",
+        "title": "%command.refreshDevices%"
+      },
+      {
+        "command": "amphilinkCfg.saveProject",
+        "title": "%command.saveProject%"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "amphilinkCfg",
+          "title": "%activitybar.title%",
+          "icon": "media/amphilink-cfg.svg"
+        }
+      ]
+    },
+    "views": {
+      "amphilinkCfg": [
+        {
+          "id": "amphilinkCfg.sidebar",
+          "name": "%view.sidebar.name%",
+          "type": "webview"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "%configuration.title%",
+      "properties": {
+        "amphilinkCfg.openocdPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "%configuration.openocdPath%"
+        },
+        "amphilinkCfg.openocdScriptsPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "%configuration.openocdScriptsPath%"
+        },
+        "amphilinkCfg.gdbPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "%configuration.gdbPath%"
+        },
+        "amphilinkCfg.adapterSpeed": {
+          "type": "integer",
+          "default": 1000,
+          "minimum": 1,
+          "maximum": 50000,
+          "scope": "window",
+          "description": "%configuration.adapterSpeed%"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs --production",
+    "compile": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "check": "tsc --noEmit",
+    "lint": "eslint src",
+    "package": "npm run check && npm run lint && npm run build && node -e \"require('node:fs').mkdirSync('artifacts',{recursive:true})\" && vsce package --out artifacts/amphilink-cfg-tool.vsix",
+    "vscode:prepublish": "npm run build"
+  },
+  "dependencies": {
+    "@vscode/codicons": "^0.0.36",
+    "jsonc-parser": "^3.3.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.33.0",
+    "@types/node": "^22.17.2",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.6.0",
+    "esbuild": "^0.25.9",
+    "eslint": "^9.33.0",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.40.0"
+  }
+}

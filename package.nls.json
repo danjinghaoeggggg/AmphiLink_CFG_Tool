@@ -1,0 +1,14 @@
+{
+  "displayName": "AmphiLink CFG Tool",
+  "description": "Discover and configure AmphiLink debuggers.",
+  "command.refreshEnvironment": "AmphiLink CFG Tool: Check Environment",
+  "command.refreshDevices": "AmphiLink CFG Tool: Refresh Devices",
+  "command.saveProject": "AmphiLink CFG Tool: Save for Current Project",
+  "activitybar.title": "AmphiLink CFG Tool",
+  "view.sidebar.name": "AmphiLink CFG Tool",
+  "configuration.title": "AmphiLink CFG Tool",
+  "configuration.openocdPath": "Absolute path to an OpenOCD executable. Wired mode requires CMSIS-DAP USB bulk; wireless mode also requires the CMSIS-DAP TCP backend.",
+  "configuration.openocdScriptsPath": "Absolute path to the OpenOCD scripts directory.",
+  "configuration.gdbPath": "Absolute path to arm-none-eabi-gdb or gdb-multiarch.",
+  "configuration.adapterSpeed": "OpenOCD adapter speed in kHz written to the managed project configuration."
+}

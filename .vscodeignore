@@ -1,0 +1,10 @@
+.github/**
+.vscode/**
+.gitignore
+src/**
+artifacts/**
+eslint.config.mjs
+esbuild.mjs
+tsconfig.json
+package-lock.json
+**/*.map
