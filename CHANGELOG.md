@@ -2,6 +2,20 @@
 
 All notable changes to AmphiLink CFG Tool are documented here.
 
+## [1.1.0] - 2026-08-29
+
+### Added
+
+- Added a wireless serial terminal for the firmware UART-over-TCP service on TCP port `4443`.
+- Added independent ASCII, hexadecimal, and binary receive/send modes with raw byte transmission.
+- Added lower-panel switching between Debug Configuration and Wireless Serial.
+
+### Changed
+
+- Renamed Configuration to Debug Configuration.
+- Selecting a reachable wireless device now connects the serial terminal automatically.
+- UART baud rate, data bits, parity, and stop bits remain managed by the firmware configuration page.
+
 ## [1.0.1] - 2026-08-29
 
 ### Fixed

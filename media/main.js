@@ -2,29 +2,39 @@
   const vscode = acquireVsCodeApi();
   let state;
   let activeTab = 'environment';
+  let activeLowerTab = 'configuration';
+  let receiveBuffer = new Uint8Array(0);
+  let receiveMode = 'ascii';
+  let sendMode = 'ascii';
+  let receiveByteCount = 0;
+  let receiveRenderTimer;
+  let pendingReceiveChunks = [];
+  let pendingReceiveLength = 0;
 
   const strings = {
     'zh-cn': {
-      environment: '环境检查', devices: '设备连接', configuration: '配置详细', refresh: '重新检查', scan: '刷新设备',
+      environment: '环境检查', devices: '设备连接', configuration: '调试配置', wirelessSerial: '无线串口', refresh: '重新检查', scan: '刷新设备',
       install: '安装', path: '路径', ready: '可用', limited: '仅有线可用', missing: '未安装', incompatible: '不兼容', error: '检查失败', checking: '检查中',
       chooseGdb: '选择 GDB 路径', chooseOpenocd: '选择 OpenOCD 路径', chooseScripts: '选择 OpenOCD scripts 路径',
       noDevices: '未发现 AmphiLink', wired: '有线', wireless: '无线', hotspot: '配置热点', unreachable: '端口不可达', colorId: '颜色 ID',
       select: '选择', selected: '已选择', openPage: '打开配置网页', hotspotHint: '请手动连接该热点，然后进入 192.168.4.1 配置。',
       workspace: '工程', detector: '识别方式', mcu: '目标芯片', elf: 'ELF', target: '目标配置', choose: '选择',
       adapterSpeed: '调试速度', kilohertz: 'kHz',
+      serialUnavailable: '请选择一个无线设备以使用无线串口。', serialWiredUnavailable: '有线设备不提供无线串口。', serialConnecting: '连接中', serialConnected: '已连接', serialDisconnected: '未连接', serialError: '连接失败', serialEndpoint: 'TCP 端点', serialReconnect: '重连', serialDisconnect: '断开', serialReceive: '接收', serialSend: '发送', serialMode: '格式', ascii: 'ASCII 文本', hex: '十六进制', binary: '二进制', clear: '清空', send: '发送', serialOpenConfig: '打开配置网页', serialRxBytes: '接收字节', serialTxBytes: '发送字节', serialNotConnected: '无线串口尚未连接', invalidHex: '十六进制必须包含偶数个数字。', invalidBinary: '二进制必须按 8 位组成字节。', invalidCharacters: '输入包含无效字符。', serialNotConnectedError: '无线串口未连接。',
       currentEnvironment: '当前环境', switchProject: '切换工程', confirmElf: '请选择一个 ELF 候选', confirmTarget: '请选择目标配置',
       save: '为当前项目保存', buildFirst: '请先构建工程生成 ELF', environmentIncomplete: '环境不完整', deviceRequired: '请选择有线或无线设备', wirelessOpenocdRequired: '无线模式不可用，请先构建支持 CMSIS-DAP TCP 的 OpenOCD master 最新提交',
       noWorkspace: '当前未打开工程文件夹', scanningWired: '正在检查有线设备', scanningWireless: '正在监听局域网广播', scanningHotspot: '正在扫描 AmphiLink 热点',
       source: { 'cubemx-cmake': 'STM32CubeMX CMake', 'existing-launch': '现有调试配置', 'cmake-file-api': 'CMake File API', 'generic-cmake': 'CMake', platformio: 'PlatformIO', 'elf-scan': 'ELF 扫描', manual: '手动配置', none: '未识别' }
     },
     en: {
-      environment: 'Environment', devices: 'Devices', configuration: 'Configuration', refresh: 'Check again', scan: 'Refresh devices',
+      environment: 'Environment', devices: 'Devices', configuration: 'Debug Configuration', wirelessSerial: 'Wireless Serial', refresh: 'Check again', scan: 'Refresh devices',
       install: 'Install', path: 'Path', ready: 'Ready', limited: 'Wired only', missing: 'Missing', incompatible: 'Incompatible', error: 'Check failed', checking: 'Checking',
       chooseGdb: 'Choose GDB path', chooseOpenocd: 'Choose OpenOCD path', chooseScripts: 'Choose OpenOCD scripts path',
       noDevices: 'No AmphiLink found', wired: 'Wired', wireless: 'Wireless', hotspot: 'Setup hotspot', unreachable: 'Port unreachable', colorId: 'Color ID',
       select: 'Select', selected: 'Selected', openPage: 'Open configuration page', hotspotHint: 'Connect to this hotspot manually, then open 192.168.4.1.',
       workspace: 'Project', detector: 'Detected by', mcu: 'Target MCU', elf: 'ELF', target: 'Target config', choose: 'Choose',
       adapterSpeed: 'Adapter speed', kilohertz: 'kHz',
+      serialUnavailable: 'Select a wireless device to use wireless serial.', serialWiredUnavailable: 'Wired devices do not provide wireless serial.', serialConnecting: 'Connecting', serialConnected: 'Connected', serialDisconnected: 'Disconnected', serialError: 'Connection failed', serialEndpoint: 'TCP endpoint', serialReconnect: 'Reconnect', serialDisconnect: 'Disconnect', serialReceive: 'Receive', serialSend: 'Send', serialMode: 'Format', ascii: 'ASCII text', hex: 'Hexadecimal', binary: 'Binary', clear: 'Clear', send: 'Send', serialOpenConfig: 'Open configuration page', serialRxBytes: 'RX bytes', serialTxBytes: 'TX bytes', serialNotConnected: 'Wireless serial is not connected', invalidHex: 'Hexadecimal input must contain an even number of digits.', invalidBinary: 'Binary input must contain complete 8-bit bytes.', invalidCharacters: 'Input contains invalid characters.', serialNotConnectedError: 'Wireless serial is not connected.',
       currentEnvironment: 'Current environment', switchProject: 'Switch project', confirmElf: 'Select an ELF candidate', confirmTarget: 'Select a target config',
       save: 'Save for current project', buildFirst: 'Build the project to create the ELF first', environmentIncomplete: 'Environment is incomplete', deviceRequired: 'Select a wired or wireless device', wirelessOpenocdRequired: 'Wireless mode is unavailable. Build the latest OpenOCD master commit with CMSIS-DAP TCP support.',
       noWorkspace: 'No project folder is open', scanningWired: 'Checking wired devices', scanningWireless: 'Listening for LAN broadcasts', scanningHotspot: 'Scanning for AmphiLink hotspots',
@@ -40,6 +50,10 @@
   document.querySelectorAll('[data-tab]').forEach((button) => button.addEventListener('click', () => {
     activeTab = button.dataset.tab;
     renderTabs();
+  }));
+  document.querySelectorAll('[data-lower-tab]').forEach((button) => button.addEventListener('click', () => {
+    activeLowerTab = button.dataset.lowerTab;
+    renderLowerTabs();
   }));
 
   document.addEventListener('click', (event) => {
@@ -57,6 +71,15 @@
     if (action === 'choose-target') vscode.postMessage({ type: 'chooseTarget' });
     if (action === 'choose-workspace') vscode.postMessage({ type: 'chooseWorkspace' });
     if (action === 'save') vscode.postMessage({ type: 'saveProject' });
+    if (action === 'wireless-serial-reconnect') vscode.postMessage({ type: 'wirelessSerialReconnect' });
+    if (action === 'wireless-serial-disconnect') vscode.postMessage({ type: 'wirelessSerialDisconnect' });
+    if (action === 'wireless-serial-clear') {
+      receiveBuffer = new Uint8Array(0);
+      pendingReceiveChunks = [];
+      pendingReceiveLength = 0;
+      updateReceiveOutput();
+    }
+    if (action === 'wireless-serial-send') sendWirelessData();
   });
 
   document.addEventListener('change', (event) => {
@@ -68,22 +91,45 @@
     if (setting) {
       vscode.postMessage({ type: 'setAdapterSpeed', value: Number(setting.value) });
     }
+    const mode = event.target.closest('[data-serial-mode]');
+    if (mode) {
+      if (mode.dataset.serialMode === 'receive') receiveMode = mode.value;
+      if (mode.dataset.serialMode === 'send') sendMode = mode.value;
+      renderWirelessSerial();
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    const input = event.target.closest('#serial-send-input');
+    if (input && event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      sendWirelessData();
+    }
   });
 
   window.addEventListener('message', (event) => {
     if (event.data?.type === 'state') {
       state = event.data.state;
+      receiveByteCount = state.wirelessSerial?.rxBytes || 0;
       render();
+    }
+    if (event.data?.type === 'wirelessSerialData' && Array.isArray(event.data.data)) {
+      if (Number.isSafeInteger(event.data.rxBytes)) receiveByteCount = event.data.rxBytes;
+      appendReceiveData(event.data.data);
     }
   });
 
   function render() {
     $('#tab-environment').textContent = t('environment');
     $('#tab-devices').textContent = t('devices');
+    $('#lower-tab-configuration').textContent = t('configuration');
+    $('#lower-tab-wireless-serial').textContent = t('wirelessSerial');
     renderTabs();
     renderEnvironment();
     renderDevices();
     renderConfiguration();
+    renderLowerTabs();
+    renderWirelessSerial();
   }
 
   function renderTabs() {
@@ -91,6 +137,13 @@
     $('#tab-devices').classList.toggle('active', activeTab === 'devices');
     $('#panel-environment').hidden = activeTab !== 'environment';
     $('#panel-devices').hidden = activeTab !== 'devices';
+  }
+
+  function renderLowerTabs() {
+    $('#lower-tab-configuration').classList.toggle('active', activeLowerTab === 'configuration');
+    $('#lower-tab-wireless-serial').classList.toggle('active', activeLowerTab === 'wireless-serial');
+    $('#configuration').hidden = activeLowerTab !== 'configuration';
+    $('#wireless-serial').hidden = activeLowerTab !== 'wireless-serial';
   }
 
   function stateLabel(probe) {
@@ -155,6 +208,120 @@
       <label class="path-field"><span>${t('target')}</span><div><input data-project-field="targetConfig" value="${escapeHtml(project.targetConfig || '')}" class="${project.targetConfigExists && !project.targetSelectionRequired ? '' : 'invalid'}"><button class="icon-only" data-action="choose-target" title="${t('choose')}">${icon('list-selection')}</button></div></label>` : ''}
       ${blockers.length ? `<div class="blockers">${blockers.map((item) => `<p>${icon('info')}<span>${escapeHtml(item)}</span></p>`).join('')}</div>` : ''}
       <button class="wide-command primary" data-action="save" ${canSave ? '' : 'disabled'}>${icon('save')}<span>${t('save')}</span></button>`;
+  }
+
+  function renderWirelessSerial() {
+    flushPendingReceiveData();
+    const serial = state?.wirelessSerial;
+    const device = state?.selectedDevice;
+    const sendDraft = $('#serial-send-input')?.value || '';
+    const available = device?.kind === 'wireless';
+    const statusText = serial?.status === 'connecting' ? t('serialConnecting') : serial?.status === 'connected' ? t('serialConnected') : serial?.status === 'error' ? t('serialError') : t('serialDisconnected');
+    const statusClass = serial?.status || 'disconnected';
+    $('#wireless-serial').innerHTML = `
+      <div class="section-toolbar serial-heading"><h2>${t('wirelessSerial')}</h2><div class="heading-actions">${available ? `<button class="inline-command" data-action="open-page" title="${t('serialOpenConfig')}">${icon('link-external')}<span>${t('serialOpenConfig')}</span></button>` : ''}</div></div>
+      ${!available ? `<div class="empty-state serial-empty">${icon('radio-tower')}<span>${device?.kind === 'wired' ? t('serialWiredUnavailable') : t('serialUnavailable')}</span></div>` : `
+        <div class="serial-status"><span class="inline-state ${statusClass}"></span><strong>${escapeHtml(statusText)}</strong><span>${t('serialEndpoint')}: ${escapeHtml(device.ip)}:${serial?.port || 4443}</span><span>${t('serialRxBytes')}: <span id="serial-rx-bytes">${receiveByteCount}</span></span><span>${t('serialTxBytes')}: ${serial?.txBytes || 0}</span><div class="serial-status-actions">${serial?.status === 'connected' ? `<button class="icon-only" data-action="wireless-serial-disconnect" title="${t('serialDisconnect')}">${icon('debug-disconnect')}</button>` : `<button class="icon-only" data-action="wireless-serial-reconnect" title="${t('serialReconnect')}" ${serial?.status === 'connecting' ? 'disabled' : ''}>${icon('refresh')}</button>`}</div></div>
+        ${serial?.error ? `<div class="serial-error">${escapeHtml(runtimeText(serial.error))}</div>` : ''}
+        <label class="serial-field"><span>${t('serialReceive')} <select data-serial-mode="receive"><option value="ascii">${t('ascii')}</option><option value="hex">${t('hex')}</option><option value="binary">${t('binary')}</option></select></span><textarea id="serial-receive-output" readonly>${escapeHtml(formatBytes(receiveBuffer, receiveMode))}</textarea><button class="icon-command" data-action="wireless-serial-clear" title="${t('clear')}">${icon('clear-all')}<span>${t('clear')}</span></button></label>
+        <label class="serial-field"><span>${t('serialSend')} <select id="serial-send-mode" data-serial-mode="send"><option value="ascii">${t('ascii')}</option><option value="hex">${t('hex')}</option><option value="binary">${t('binary')}</option></select></span><textarea id="serial-send-input"></textarea><button class="wide-command primary" data-action="wireless-serial-send" ${serial?.status === 'connected' ? '' : 'disabled'}>${icon('send')}<span>${t('send')}</span></button></label>`}`;
+    const receiveSelect = $('#wireless-serial select[data-serial-mode="receive"]');
+    const sendSelect = $('#serial-send-mode');
+    if (receiveSelect) receiveSelect.value = receiveMode;
+    if (sendSelect) sendSelect.value = sendMode;
+    const output = $('#serial-receive-output');
+    if (output) {
+      output.value = formatBytes(receiveBuffer, receiveMode);
+      output.scrollTop = output.scrollHeight;
+    }
+    const sendInput = $('#serial-send-input');
+    if (sendInput) sendInput.value = sendDraft;
+  }
+
+  function appendReceiveData(data) {
+    const incoming = Uint8Array.from(data);
+    if (!incoming.length) return;
+    pendingReceiveChunks.push(incoming);
+    pendingReceiveLength += incoming.length;
+    scheduleReceiveRender();
+  }
+
+  function scheduleReceiveRender() {
+    if (receiveRenderTimer) return;
+    receiveRenderTimer = window.setTimeout(() => {
+      receiveRenderTimer = undefined;
+      updateReceiveOutput();
+    }, 50);
+  }
+
+  function updateReceiveOutput() {
+    flushPendingReceiveData();
+    const output = $('#serial-receive-output');
+    if (output) {
+      output.value = formatBytes(receiveBuffer, receiveMode);
+      output.scrollTop = output.scrollHeight;
+    }
+    const byteCount = $('#serial-rx-bytes');
+    if (byteCount) byteCount.textContent = String(receiveByteCount);
+  }
+
+  function flushPendingReceiveData() {
+    if (!pendingReceiveLength) return;
+    const max = 256 * 1024;
+    const totalLength = receiveBuffer.length + pendingReceiveLength;
+    const combined = new Uint8Array(Math.min(max, totalLength));
+    let skip = totalLength - combined.length;
+    let offset = 0;
+    const copy = (chunk) => {
+      if (skip >= chunk.length) {
+        skip -= chunk.length;
+        return;
+      }
+      const source = skip ? chunk.subarray(skip) : chunk;
+      skip = 0;
+      combined.set(source.subarray(0, combined.length - offset), offset);
+      offset += Math.min(source.length, combined.length - offset);
+    };
+    copy(receiveBuffer);
+    pendingReceiveChunks.forEach(copy);
+    receiveBuffer = combined;
+    pendingReceiveChunks = [];
+    pendingReceiveLength = 0;
+  }
+
+  function formatBytes(bytes, mode) {
+    if (mode === 'hex') return [...bytes].map((value) => value.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+    if (mode === 'binary') return [...bytes].map((value) => value.toString(2).padStart(8, '0')).join(' ');
+    return new TextDecoder().decode(bytes);
+  }
+
+  function sendWirelessData() {
+    const input = $('#serial-send-input');
+    const mode = $('#serial-send-mode')?.value || 'ascii';
+    if (!input || state?.wirelessSerial?.status !== 'connected') return;
+    try {
+      const data = parseBytes(input.value, mode);
+      if (!data.length) return;
+      vscode.postMessage({ type: 'wirelessSerialSend', data });
+      input.value = '';
+    } catch (error) {
+      input.setCustomValidity(error.message);
+      input.reportValidity();
+      input.addEventListener('input', () => input.setCustomValidity(''), { once: true });
+    }
+  }
+
+  function parseBytes(value, mode) {
+    if (mode === 'ascii') return [...new TextEncoder().encode(value)];
+    const compact = value.replace(/\s+/g, '');
+    if (mode === 'hex') {
+      if (!/^[0-9a-fA-F]*$/.test(compact)) throw new Error(t('invalidCharacters'));
+      if (compact.length % 2) throw new Error(t('invalidHex'));
+      return compact.match(/../g)?.map((pair) => Number.parseInt(pair, 16)) || [];
+    }
+    if (!/^[01]*$/.test(compact)) throw new Error(t('invalidCharacters'));
+    if (compact.length % 8) throw new Error(t('invalidBinary'));
+    return compact.match(/.{8}/g)?.map((bits) => Number.parseInt(bits, 2)) || [];
   }
 
   function environmentFact(probe) {

@@ -7,8 +7,14 @@ AmphiLink CFG Tool 是用于发现、连接和配置 AmphiLink 调试器的 VS C
 1. 点击 Activity Bar 中的 AmphiLink CFG Tool 图标，打开“环境检查”并等待检查完成。
 2. 对缺失工具使用安装按钮或路径按钮。点击安装按钮后会提示安装方法或在得到确认后执行安装命令。
 3. 打开“设备连接”并刷新。扩展依次检查 USB AmphiLink、局域网无线广播和 `AmphiLink-*` 热点。热点需要手动连接后访问 `http://192.168.4.1/`进行配置。
-4. 选择有线设备或可达的无线设备，在“配置详细”中确认目标芯片、target config、ELF 和调试速度，然后点击“为当前项目保存”。
+4. 选择有线设备或可达的无线设备，在“调试配置”中确认目标芯片、target config、ELF 和调试速度，然后点击“为当前项目保存”。选择无线设备后可以在下半部“无线串口”中连接 TCP 串口并收发数据。
 5. 打开 VS Code 的 Run and Debug 视图，选择生成的 AmphiLink Cortex-Debug 配置。
+
+### 无线串口
+
+固件在 Wi-Fi STA 模式下通过 TCP `4443` 提供 UART-over-TCP 原始字节流。选择可达的无线设备后扩展会自动连接该端口；切换设备或选择有线设备时会断开连接。无线串口面板支持独立的 ASCII 文本、十六进制和二进制接收显示及发送格式，十六进制和二进制发送会按连续数字流解析。
+
+波特率、数据位、校验位和停止位是固件 UART 的硬件参数，不属于 TCP 客户端配置。请通过“无线串口”面板中的“打开配置网页”按钮进入设备网页进行修改。
 
 ### 环境要求
 
@@ -26,7 +32,7 @@ macOS 可由本扩展在得到确认后通过 `brew install --HEAD open-ocd` 构
 
 STM32CubeMX 生成的 CMake 工程优先。扩展解析 `.ioc`、`CMakePresets.json`、CMake File API 和 CMake 输出；例如 `STM32F407VET6` 会映射到 `target/stm32f4x.cfg`，并从 `build/Debug` 推导 ELF。其他工程依次尝试现有 Cortex-Debug/OpenOCD 配置、通用 CMake、PlatformIO 和工作区 ELF 扫描。
 
-多个 ELF 或 target config 候选会要求确认。无法自动识别时，可以在“配置详细”中直接输入或浏览选择。ELF 尚未生成、target config 不存在、环境不完整、未选择设备或未打开工作区时，保存操作会被阻止并显示修复提示。
+多个 ELF 或 target config 候选会要求确认。无法自动识别时，可以在“调试配置”中直接输入或浏览选择。ELF 尚未生成、target config 不存在、环境不完整、未选择设备或未打开工作区时，保存操作会被阻止并显示修复提示。
 
 ## 配置生成
 
@@ -63,7 +69,7 @@ AmphiLink CFG Tool is a VS Code extension for discovering, connecting to, and co
 1. Open the AmphiLink CFG Tool view from the Activity Bar, select Environment, and wait for the check to finish.
 2. Use the install or path buttons for missing tools. The extension shows the installation method and asks for confirmation before running an installation command.
 3. Open Devices and refresh. The extension checks USB AmphiLink, LAN wireless broadcasts, and `AmphiLink-*` hotspots in that order. Connect to a hotspot manually before opening `http://192.168.4.1/` for configuration.
-4. Select a wired device or a reachable wireless device. In Configuration, confirm the target MCU, target config, ELF, and adapter speed, then choose Save for current project.
+4. Select a wired device or a reachable wireless device. In Debug Configuration, confirm the target MCU, target config, ELF, and adapter speed, then choose Save for current project. When a wireless device is selected, use Wireless Serial in the lower panel to connect to TCP port `4443` and exchange data.
 5. Open VS Code's Run and Debug view and select the generated AmphiLink Cortex-Debug configuration.
 
 ### Requirements
@@ -118,11 +124,17 @@ mingw32-make -j4
 mingw32-make install
 ```
 
+### Wireless serial
+
+When Wi-Fi STA mode is active, the firmware exposes a raw UART-over-TCP service on TCP `4443`. Selecting a reachable wireless device connects the extension automatically; changing devices or selecting a wired device closes the connection. The Wireless Serial panel supports independent ASCII text, hexadecimal, and binary receive and send formats. Hexadecimal and binary sends are parsed as continuous digit streams.
+
+Baud rate, data bits, parity, and stop bits are hardware UART settings, not TCP client settings. Use the Open configuration page button in the Wireless Serial panel to change them on the device.
+
 ### Project detection
 
 STM32CubeMX-generated CMake projects have priority. The extension parses `.ioc`, `CMakePresets.json`, the CMake File API, and CMake output. For example, `STM32F407VET6` maps to `target/stm32f4x.cfg`, and the ELF is inferred from `build/Debug`. Other projects are checked using existing Cortex-Debug/OpenOCD configuration, generic CMake, PlatformIO metadata, and workspace ELF scanning.
 
-When multiple ELF or target-config candidates exist, the extension asks for confirmation. Any uncertain result can be replaced by entering or browsing for a path in Configuration. Saving is blocked when the ELF has not been built, the target config is missing, the environment is incomplete, no device is selected, or no workspace is open.
+When multiple ELF or target-config candidates exist, the extension asks for confirmation. Any uncertain result can be replaced by entering or browsing for a path in Debug Configuration. Saving is blocked when the ELF has not been built, the target config is missing, the environment is incomplete, no device is selected, or no workspace is open.
 
 ## Generated configuration
 

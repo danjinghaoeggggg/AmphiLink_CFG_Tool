@@ -19,6 +19,10 @@ button:disabled { cursor: default; opacity: .48; }
 .segments button:hover { background: var(--vscode-toolbar-hoverBackground); }
 .segments button.active { color: var(--vscode-foreground); background: var(--vscode-button-secondaryBackground); font-weight: 600; }
 .panel { min-height: 210px; padding: 0 10px 12px; }
+.lower-segments { height: 38px; padding: 5px 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; border-top: 1px solid var(--vscode-widget-border); border-bottom: 1px solid var(--vscode-widget-border); }
+.lower-segments button { border: 0; border-radius: 4px; color: var(--vscode-descriptionForeground); background: transparent; }
+.lower-segments button:hover { background: var(--vscode-toolbar-hoverBackground); }
+.lower-segments button.active { color: var(--vscode-foreground); background: var(--vscode-button-secondaryBackground); font-weight: 600; }
 .section-toolbar { min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .section-toolbar h2 { margin: 0; font-size: 12px; line-height: 1.2; font-weight: 650; text-transform: uppercase; color: var(--vscode-sideBarSectionHeader-foreground); }
 .icon-command, .wide-command, .select-button { min-height: 28px; padding: 0 9px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid var(--vscode-button-border, transparent); border-radius: 4px; background: var(--vscode-button-secondaryBackground); }
@@ -89,6 +93,21 @@ button:disabled { cursor: default; opacity: .48; }
 .wide-command { width: 100%; margin-top: 8px; min-height: 32px; }
 .wide-command.primary { color: var(--vscode-button-foreground); background: var(--vscode-button-background); }
 .wide-command.primary:hover { background: var(--vscode-button-hoverBackground); }
+.serial-heading { min-height: 42px; }
+.serial-empty { min-height: 140px; }
+.serial-status { min-height: 35px; padding: 5px 0; display: flex; align-items: center; gap: 7px; border-top: 1px solid var(--vscode-widget-border); border-bottom: 1px solid var(--vscode-widget-border); color: var(--vscode-descriptionForeground); font-size: 10px; }
+.serial-status strong { color: var(--vscode-foreground); font-size: 11px; }
+.serial-status-actions { margin-left: auto; display: flex; }
+.serial-error { margin: 7px 0; padding: 6px 8px; border-left: 2px solid var(--vscode-errorForeground); color: var(--vscode-errorForeground); background: var(--vscode-inputValidation-errorBackground); font-size: 11px; }
+.serial-field { margin: 9px 0; display: grid; gap: 5px; color: var(--vscode-descriptionForeground); font-size: 11px; }
+.serial-field > span { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.serial-field select { min-width: 100px; height: 25px; padding: 0 4px; border: 1px solid var(--vscode-dropdown-border, transparent); border-radius: 2px; color: var(--vscode-dropdown-foreground); background: var(--vscode-dropdown-background); font-size: 10px; }
+.serial-field textarea { width: 100%; min-height: 92px; resize: vertical; padding: 6px; border: 1px solid var(--vscode-input-border, transparent); border-radius: 2px; color: var(--vscode-input-foreground); background: var(--vscode-input-background); font-family: var(--vscode-editor-font-family, monospace); font-size: 11px; line-height: 1.35; }
+.serial-field textarea:read-only { color: var(--vscode-textPreformat-foreground); }
+.serial-field .wide-command { margin-top: 0; }
+.inline-state.connecting { background: var(--vscode-progressBar-background); animation: pulse 1s ease-in-out infinite alternate; }
+.inline-state.connected { background: var(--vscode-testing-iconPassed); }
+.inline-state.disconnected, .inline-state.error { background: var(--vscode-testing-iconFailed); }
 #toast { display: none; }
 button:focus-visible, input:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 1px; }
 @keyframes spin { to { transform: rotate(360deg); } }

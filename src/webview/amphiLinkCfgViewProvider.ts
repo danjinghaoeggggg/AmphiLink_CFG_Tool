@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { isFile } from '../core/paths';
 import { canConnect, DiscoveryService } from '../devices/discoveryService';
+import { WirelessSerialService } from '../devices/wirelessSerialService';
 import { EnvironmentService, initialEnvironmentStatus } from '../environment/environmentService';
 import { InstallService } from '../environment/installService';
 import { saveProjectConfiguration } from '../projects/configWriter';
@@ -18,6 +19,7 @@ export class AmphiLinkCfgViewProvider implements vscode.WebviewViewProvider, vsc
   private readonly environmentService: EnvironmentService;
   private readonly installService: InstallService;
   private readonly discoveryService = new DiscoveryService();
+  private readonly wirelessSerialService: WirelessSerialService;
   private readonly projectDetector = new ProjectDetector();
   private selectedWorkspace?: vscode.WorkspaceFolder;
   private state: ExtensionState;
@@ -31,8 +33,19 @@ export class AmphiLinkCfgViewProvider implements vscode.WebviewViewProvider, vsc
       workspaceCount: vscode.workspace.workspaceFolders?.length ?? 0,
       adapterSpeed: normalizeAdapterSpeed(vscode.workspace.getConfiguration('amphilinkCfg').get<number>('adapterSpeed')),
       environment: initialEnvironmentStatus(),
-      scan: structuredClone(INITIAL_SCAN)
+      scan: structuredClone(INITIAL_SCAN),
+      wirelessSerial: { status: 'idle', port: 4443, rxBytes: 0, txBytes: 0 }
     };
+    this.wirelessSerialService = new WirelessSerialService(
+      (serial) => {
+        this.state.wirelessSerial = serial;
+        this.postState();
+      },
+      (data, rxBytes) => {
+        this.state.wirelessSerial = { ...this.state.wirelessSerial, rxBytes };
+        void this.view?.webview.postMessage({ type: 'wirelessSerialData', data, rxBytes });
+      }
+    );
     context.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => {
       const folders = vscode.workspace.workspaceFolders ?? [];
       this.state.workspaceCount = folders.length;
@@ -54,12 +67,14 @@ export class AmphiLinkCfgViewProvider implements vscode.WebviewViewProvider, vsc
     view.onDidDispose(() => {
       this.view = undefined;
       this.discoveryService.cancel();
+      this.wirelessSerialService.disconnect();
     });
   }
 
   dispose(): void {
     this.disposed = true;
     this.discoveryService.cancel();
+    this.wirelessSerialService.dispose();
   }
 
   async refreshEnvironment(): Promise<void> {
@@ -80,6 +95,7 @@ export class AmphiLinkCfgViewProvider implements vscode.WebviewViewProvider, vsc
       return;
     }
     this.state.selectedDevice = undefined;
+    this.wirelessSerialService.disconnect();
     this.state.scan = await this.discoveryService.scan(openocd.path, (scan) => {
       this.state.scan = scan;
       this.postState();
@@ -199,6 +215,15 @@ export class AmphiLinkCfgViewProvider implements vscode.WebviewViewProvider, vsc
       case 'setProjectField':
         await this.setProjectField(message.field, message.value);
         break;
+      case 'wirelessSerialReconnect':
+        this.reconnectWirelessSerial();
+        break;
+      case 'wirelessSerialDisconnect':
+        this.wirelessSerialService.disconnect();
+        break;
+      case 'wirelessSerialSend':
+        this.sendWirelessSerial(message.data);
+        break;
     }
   }
 
@@ -219,9 +244,31 @@ export class AmphiLinkCfgViewProvider implements vscode.WebviewViewProvider, vsc
     }
     if (device.kind === 'wireless') {
       device.reachable = true;
+      this.state.selectedDevice = device;
+      this.wirelessSerialService.connect(device.ip, device.key);
+    } else {
+      this.state.selectedDevice = device;
+      this.wirelessSerialService.disconnect();
     }
-    this.state.selectedDevice = device;
     this.postState();
+  }
+
+  private reconnectWirelessSerial(): void {
+    const device = this.state.selectedDevice;
+    if (device?.kind === 'wireless') {
+      this.wirelessSerialService.connect(device.ip, device.key);
+    }
+  }
+
+  private sendWirelessSerial(data: number[]): void {
+    if (!Array.isArray(data) || data.some((value) => !Number.isInteger(value) || value < 0 || value > 255)) {
+      return;
+    }
+    try {
+      this.wirelessSerialService.send(data);
+    } catch (error) {
+      void vscode.window.showErrorMessage(localizedError(this.state.locale, error));
+    }
   }
 
   private async openDevicePage(hotspot: boolean): Promise<void> {
@@ -435,7 +482,12 @@ export class AmphiLinkCfgViewProvider implements vscode.WebviewViewProvider, vsc
   <main>
     <section id="panel-environment" class="panel"></section>
     <section id="panel-devices" class="panel" hidden></section>
+    <nav class="lower-segments" aria-label="Lower views">
+      <button id="lower-tab-configuration" class="active" data-lower-tab="configuration"></button>
+      <button id="lower-tab-wireless-serial" data-lower-tab="wireless-serial"></button>
+    </nav>
     <section id="configuration" class="configuration"></section>
+    <section id="wireless-serial" class="configuration wireless-serial" hidden></section>
   </main>
   <div id="toast" role="status" aria-live="polite"></div>
   <script nonce="${nonce}" src="${scriptUri}"></script>

@@ -90,6 +90,18 @@ export interface DeviceScanStatus {
   scannedAt?: string;
 }
 
+export type WirelessSerialConnectionState = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error';
+
+export interface WirelessSerialState {
+  status: WirelessSerialConnectionState;
+  deviceKey?: string;
+  host?: string;
+  port: 4443;
+  rxBytes: number;
+  txBytes: number;
+  error?: string;
+}
+
 export type ProjectSource =
   | 'cubemx-cmake'
   | 'existing-launch'
@@ -127,6 +139,7 @@ export interface ExtensionState {
   adapterSpeed: number;
   environment: EnvironmentStatus;
   scan: DeviceScanStatus;
+  wirelessSerial: WirelessSerialState;
   selectedDevice?: SelectableDevice;
   project?: ProjectProfile;
   busyMessage?: string;
@@ -145,7 +158,10 @@ export type WebviewMessage =
   | { type: 'chooseTarget' }
   | { type: 'chooseWorkspace' }
   | { type: 'setAdapterSpeed'; value: number }
-  | { type: 'setProjectField'; field: 'elfPath' | 'targetConfig'; value: string };
+  | { type: 'setProjectField'; field: 'elfPath' | 'targetConfig'; value: string }
+  | { type: 'wirelessSerialReconnect' }
+  | { type: 'wirelessSerialDisconnect' }
+  | { type: 'wirelessSerialSend'; data: number[] };
 
 export interface ProcessResult {
   command: string;
