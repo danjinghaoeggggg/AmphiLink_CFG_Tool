@@ -1,0 +1,227 @@
+name: Build and publish latest release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: latest-release
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build VS Code extension
+        run: npm run package
+
+      - name: Prepare release assets and notes
+        shell: bash
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          import shutil
+          from pathlib import Path
+
+          package = json.loads(Path("package.json").read_text(encoding="utf-8"))
+          version = package["version"]
+          source = Path("artifacts/amphilink-cfg-tool.vsix")
+          if not source.is_file():
+              raise SystemExit(f"Missing VSIX build output: {source}")
+
+          assets_dir = Path("release-assets")
+          assets_dir.mkdir(exist_ok=True)
+          asset_name = f"amphilink-cfg-tool-{version}.vsix"
+          asset_path = assets_dir / asset_name
+          shutil.copy2(source, asset_path)
+          digest = hashlib.sha256(asset_path.read_bytes()).hexdigest()
+
+          (assets_dir / "SHA256SUMS.txt").write_text(
+              f"{digest}  {asset_name}\n",
+              encoding="utf-8",
+          )
+          (assets_dir / "release-manifest.json").write_text(
+              json.dumps(
+                  {
+                      "name": package["name"],
+                      "version": version,
+                      "asset": asset_name,
+                      "sha256": digest,
+                      "commit": os.environ["COMMIT_SHA"],
+                  },
+                  indent=2,
+              )
+              + "\n",
+              encoding="utf-8",
+          )
+
+          changelog_lines = Path("CHANGELOG.md").read_text(encoding="utf-8").splitlines()
+          heading_index = next(
+              (index for index, line in enumerate(changelog_lines) if line.startswith("## ")),
+              None,
+          )
+          if heading_index is None:
+              raise SystemExit("CHANGELOG.md has no version section")
+          next_heading = next(
+              (
+                  index
+                  for index in range(heading_index + 1, len(changelog_lines))
+                  if changelog_lines[index].startswith("## ")
+              ),
+              len(changelog_lines),
+          )
+          changelog_section = "\n".join(changelog_lines[heading_index + 1:next_heading]).strip()
+          notes = "\n".join(
+              [
+                  changelog_section,
+                  "",
+                  "## Installation",
+                  "",
+                  f"Download `{asset_name}` from the Assets section and install it in VS Code with the Extensions view's Install from VSIX command.",
+                  "",
+                  f"SHA-256: `{digest}`",
+                  "",
+                  f"Build commit: `{os.environ['COMMIT_SHA']}`",
+                  "",
+                  "This pre-release was automatically built and published by GitHub Actions.",
+              ]
+          )
+          Path("release-notes.md").write_text(notes + "\n", encoding="utf-8")
+          PY
+
+      - name: Update latest pre-release
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from urllib.error import HTTPError
+          from urllib.parse import quote, urljoin
+          from urllib.request import Request, urlopen
+
+          repository = os.environ["GITHUB_REPOSITORY"]
+          token = os.environ["GITHUB_TOKEN"]
+          sha = os.environ["GITHUB_SHA"]
+          api_root = "https://api.github.com/"
+          headers = {
+              "Accept": "application/vnd.github+json",
+              "Authorization": f"Bearer {token}",
+              "X-GitHub-Api-Version": "2022-11-28",
+              "User-Agent": "amphilink-cfg-release-workflow",
+          }
+
+          def request(method, path, payload=None, content_type="application/json"):
+              body = None if payload is None else (
+                  payload if isinstance(payload, bytes) else json.dumps(payload).encode()
+              )
+              request_headers = dict(headers)
+              if body is not None:
+                  request_headers["Content-Type"] = content_type
+              req = Request(
+                  urljoin(api_root, path),
+                  data=body,
+                  headers=request_headers,
+                  method=method,
+              )
+              try:
+                  with urlopen(req) as response:
+                      raw = response.read()
+                      return json.loads(raw) if raw else None
+              except HTTPError as error:
+                  details = error.read().decode("utf-8", errors="replace")
+                  print(f"GitHub API {method} {path} failed ({error.code}): {details}")
+                  raise
+
+          tag_path = f"repos/{repository}/git/refs/tags/latest"
+          try:
+              request("GET", tag_path)
+          except HTTPError as error:
+              if error.code != 404:
+                  raise
+              request(
+                  "POST",
+                  f"repos/{repository}/git/refs",
+                  {"ref": "refs/tags/latest", "sha": sha},
+              )
+          else:
+              request("PATCH", tag_path, {"sha": sha, "force": True})
+
+          title = "AmphiLink CFG Tool latest"
+          body = Path("release-notes.md").read_text(encoding="utf-8")
+          release_path = f"repos/{repository}/releases/tags/latest"
+          try:
+              release = request("GET", release_path)
+          except HTTPError as error:
+              if error.code != 404:
+                  raise
+              release = request(
+                  "POST",
+                  f"repos/{repository}/releases",
+                  {
+                      "tag_name": "latest",
+                      "target_commitish": sha,
+                      "name": title,
+                      "body": body,
+                      "draft": False,
+                      "prerelease": True,
+                  },
+              )
+          else:
+              while True:
+                  assets = request(
+                      "GET",
+                      f"repos/{repository}/releases/{release['id']}/assets?per_page=100&page=1",
+                  )
+                  if not assets:
+                      break
+                  for asset in assets:
+                      request("DELETE", f"repos/{repository}/releases/assets/{asset['id']}")
+              release = request(
+                  "PATCH",
+                  f"repos/{repository}/releases/{release['id']}",
+                  {
+                      "tag_name": "latest",
+                      "name": title,
+                      "body": body,
+                      "draft": False,
+                      "prerelease": True,
+                  },
+              )
+
+          upload_url = release["upload_url"].split("{", 1)[0]
+          for asset_path in sorted(Path("release-assets").iterdir()):
+              if not asset_path.is_file():
+                  continue
+              upload_path = f"{upload_url}?name={quote(asset_path.name)}"
+              request(
+                  "POST",
+                  upload_path,
+                  asset_path.read_bytes(),
+                  content_type="application/octet-stream",
+              )
+          PY
