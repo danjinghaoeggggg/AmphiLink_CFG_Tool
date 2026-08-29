@@ -2,6 +2,12 @@
 
 All notable changes to AmphiLink CFG Tool are documented here.
 
+## [1.0.1] - 2026-08-29
+
+### Fixed
+
+- The Windows OpenOCD prerelease installer now discovers the current archive through the GitHub Releases API and verifies its SHA-256 digest when available.
+
 ## [1.0.0] - 2026-08-22
 
 ### Added
